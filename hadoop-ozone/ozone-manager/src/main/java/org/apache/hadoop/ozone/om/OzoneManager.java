@@ -157,8 +157,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
           + StartupOption.HELP.getName() + " ]\n";
   private static final String OM_DAEMON = "om";
   private static boolean securityEnabled = false;
-  private static OzoneDelegationTokenSecretManager<OzoneTokenIdentifier>
-      delegationTokenMgr;
+  private static OzoneDelegationTokenSecretManager delegationTokenMgr;
   private OzoneBlockTokenSecretManager blockTokenMgr;
   private KeyPair keyPair;
   private CertificateClient certClient;
@@ -321,7 +320,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         conf.getTimeDuration(OMConfigKeys.DELEGATION_TOKEN_RENEW_INTERVAL_KEY,
             OMConfigKeys.DELEGATION_TOKEN_RENEW_INTERVAL_DEFAULT,
             TimeUnit.MILLISECONDS);
-    return new OzoneDelegationTokenSecretManager<>(conf, tokenMaxLifetime,
+    return new OzoneDelegationTokenSecretManager(conf, tokenMaxLifetime,
         tokenRenewInterval, tokenRemoverScanInterval, omRpcAddressTxt);
   }
 
