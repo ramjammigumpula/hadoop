@@ -61,6 +61,7 @@ enum Status {
     SCM_VERSION_MISMATCH_ERROR = 21;
     S3_BUCKET_NOT_FOUND = 22;
     S3_BUCKET_ALREADY_EXISTS = 23;
+    S3_SECRET_NOT_FOUND = 24;
 }
 
 
@@ -426,6 +427,19 @@ message S3ListBucketsResponse {
     repeated BucketInfo bucketInfo = 2;
 }
 
+message S3Secret {
+    required string kerberosID = 1;
+    required string awsSecret = 2;
+}
+
+message S3SecretRequest {
+    required string kerberosID = 1;
+}
+
+message S3SecretResponse {
+    required Status status = 1;
+    required S3Secret s3Secret = 2;
+}
 
 /**
  The OM service that takes care of Ozone namespace.
@@ -580,4 +594,7 @@ service OzoneManagerService {
 
     rpc listS3Buckets(S3ListBucketsRequest)
     returns(S3ListBucketsResponse);
+
+    rpc getS3Secret(S3SecretRequest)
+    returns(S3SecretResponse);
 }

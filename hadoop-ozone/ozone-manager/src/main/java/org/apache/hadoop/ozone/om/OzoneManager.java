@@ -50,6 +50,7 @@ import org.apache.hadoop.ipc.Client;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
+import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.ozone.security.OzoneSecurityException;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.security.AccessControlException;
@@ -187,6 +188,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   private final Runnable shutdownHook;
   private final File omMetaDir;
   private final SecurityConfig secConfig;
+  private final S3SecretManager s3SecretManager;
 
   private OzoneManager(OzoneConfiguration conf) throws IOException {
     Preconditions.checkNotNull(conf);
@@ -245,6 +247,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         volumeManager, bucketManager);
     keyManager = new KeyManagerImpl(scmBlockClient, metadataManager,
         configuration, omStorage.getOmId(), blockTokenMgr);
+    s3SecretManager = new S3SecretManagerImpl(configuration, metadataManager);
 
     shutdownHook = () -> {
       saveOmMetrics();
@@ -1649,6 +1652,14 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     } catch (IOException ex) {
       metrics.incNumBucketDeleteFails();
     }
+  }
+
+  @Override
+  /**
+   * {@inheritDoc}
+   */
+  public S3SecretValue getS3Secret(String kerberosID) throws IOException{
+    return s3SecretManager.getS3Secret(kerberosID);
   }
 
   @Override

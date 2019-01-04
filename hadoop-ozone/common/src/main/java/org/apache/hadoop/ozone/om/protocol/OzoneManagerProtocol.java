@@ -25,6 +25,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
+import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OzoneAclInfo;
 
@@ -308,5 +309,12 @@ public interface OzoneManagerProtocol  extends OzoneManagerSecurityProtocol {
                                    String bucketPrefix, int maxNumOfBuckets)
       throws IOException;
 
+  /**
+   * Gets s3Secret for given kerberos user.
+   * @param kerberosID
+   * @return S3SecretValue
+   * @throws IOException
+   */
+  S3SecretValue getS3Secret(String kerberosID) throws IOException;
 }
 

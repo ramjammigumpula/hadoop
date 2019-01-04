@@ -33,8 +33,10 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
+import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
 import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto
     .OzoneManagerProtocolProtos.AllocateBlockRequest;
 import org.apache.hadoop.ozone.protocol.proto
@@ -880,6 +882,27 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     } else {
       throw new IOException("List S3 Buckets failed, error: "
           + resp.getStatus());
+    }
+  }
+
+  @Override
+  public S3SecretValue getS3Secret(String kerberosID) throws IOException {
+    OzoneManagerProtocolProtos.S3SecretRequest request  =
+        OzoneManagerProtocolProtos.S3SecretRequest.newBuilder()
+        .setKerberosID(kerberosID)
+        .build();
+    final OzoneManagerProtocolProtos.S3SecretResponse resp;
+    try {
+      resp = rpcProxy.getS3Secret(NULL_RPC_CONTROLLER, request);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+
+    if(resp.getStatus() != Status.OK) {
+      throw new IOException("Fetch S3 Secret failed, error: " +
+          resp.getStatus());
+    } else {
+      return S3SecretValue.fromProtobuf(resp.getS3Secret());
     }
   }
 

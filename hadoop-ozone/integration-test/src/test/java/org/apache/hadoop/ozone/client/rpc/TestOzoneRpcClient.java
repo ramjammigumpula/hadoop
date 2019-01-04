@@ -56,6 +56,7 @@ import org.apache.hadoop.ozone.client.rest.OzoneException;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.protocolPB.
     StorageContainerLocationProtocolClientSideTranslatorPB;
+import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.util.Time;
 import org.junit.AfterClass;
@@ -1256,6 +1257,23 @@ public class TestOzoneRpcClient {
     while(keys.hasNext()) {
       Assert.fail();
     }
+  }
+
+  @Test
+  public void testGetS3Secret() throws IOException {
+    //Creates a secret since it does not exist
+    S3SecretValue firstAttempt = store.getS3Secret("HADOOP/JOHNDOE");
+
+    //Fetches the secret from db since it was created in previous step
+    S3SecretValue secondAttempt = store.getS3Secret("HADOOP/JOHNDOE");
+
+    //secret fetched on both attempts must be same
+    Assert.assertTrue(firstAttempt.getAwsSecret()
+        .equals(secondAttempt.getAwsSecret()));
+
+    //access key fetched on both attempts must be same
+    Assert.assertTrue(firstAttempt.getAwsAccessKey()
+        .equals(secondAttempt.getAwsAccessKey()));
   }
 
   /**

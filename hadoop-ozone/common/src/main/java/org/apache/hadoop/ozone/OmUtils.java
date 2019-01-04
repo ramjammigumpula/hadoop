@@ -18,10 +18,15 @@
 package org.apache.hadoop.ozone;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Optional;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.server.ServerUtils;
@@ -139,5 +144,26 @@ public final class OmUtils {
         "Falling back to {} instead.",
         OMConfigKeys.OZONE_OM_DB_DIRS, HddsConfigKeys.OZONE_METADATA_DIRS);
     return ServerUtils.getOzoneMetaDirPath(conf);
+  }
+
+  public static byte[] getMD5Digest(String input) throws IOException {
+    try {
+      MessageDigest md = MessageDigest.getInstance(OzoneConsts.MD5_HASH);
+      return md.digest(input.getBytes(StandardCharsets.UTF_8));
+    } catch (NoSuchAlgorithmException ex) {
+      throw new IOException("Error creating an instance of MD5 digest.\n" +
+          "This could possibly indicate a faulty JRE");
+    }
+  }
+
+  public static byte[] getSHADigest() throws IOException {
+    try {
+      MessageDigest sha = MessageDigest.getInstance(OzoneConsts.FILE_HASH);
+      return sha.digest(RandomStringUtils.random(32)
+          .getBytes(StandardCharsets.UTF_8));
+    } catch (NoSuchAlgorithmException ex) {
+      throw new IOException("Error creating an instance of SHA-256 digest.\n" +
+          "This could possibly indicate a faulty JRE");
+    }
   }
 }

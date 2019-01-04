@@ -31,6 +31,7 @@ import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
 import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
 import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolPB;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .AllocateBlockRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
@@ -199,6 +200,8 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
         return Status.S3_BUCKET_ALREADY_EXISTS;
       case S3_BUCKET_NOT_FOUND:
         return Status.S3_BUCKET_NOT_FOUND;
+      case S3_SECRET_NOT_FOUND:
+        return Status.S3_SECRET_NOT_FOUND;
       default:
         return Status.INTERNAL_ERROR;
       }
@@ -654,6 +657,22 @@ public class OzoneManagerProtocolServerSideTranslatorPB implements
       for(OmBucketInfo bucket : buckets) {
         resp.addBucketInfo(bucket.getProtobuf());
       }
+      resp.setStatus(Status.OK);
+    } catch (IOException e) {
+      resp.setStatus(exceptionToResponseStatus(e));
+    }
+    return resp.build();
+  }
+
+  @Override
+  public OzoneManagerProtocolProtos.S3SecretResponse getS3Secret(
+      RpcController controller,
+      OzoneManagerProtocolProtos.S3SecretRequest request)
+      throws ServiceException {
+    OzoneManagerProtocolProtos.S3SecretResponse.Builder resp =
+        OzoneManagerProtocolProtos.S3SecretResponse.newBuilder();
+    try {
+      resp.setS3Secret(impl.getS3Secret(request.getKerberosID()).getProtobuf());
       resp.setStatus(Status.OK);
     } catch (IOException e) {
       resp.setStatus(exceptionToResponseStatus(e));
