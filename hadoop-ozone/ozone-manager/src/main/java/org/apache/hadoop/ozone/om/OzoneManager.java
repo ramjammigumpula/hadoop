@@ -188,6 +188,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   private final File omMetaDir;
   private final SecurityConfig secConfig;
   private final S3SecretManager s3SecretManager;
+  private volatile boolean isOmRpcServerRunning = false;
 
   private OzoneManager(OzoneConfiguration conf) throws IOException {
     Preconditions.checkNotNull(conf);
@@ -213,14 +214,9 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       scmContainerClient = null;
       scmBlockClient = null;
     }
-    final int handlerCount = conf.getInt(OZONE_OM_HANDLER_COUNT_KEY,
-        OZONE_OM_HANDLER_COUNT_DEFAULT);
 
     RPC.setProtocolEngine(configuration, OzoneManagerProtocolPB.class,
         ProtobufRpcEngine.class);
-
-    BlockingService omService = newReflectiveBlockingService(
-        new OzoneManagerProtocolServerSideTranslatorPB(this));
     final InetSocketAddress omNodeRpcAddr =
         getOmAddress(configuration);
     omRpcAddressTxt = new Text(OmUtils.getOmRpcAddress(configuration));
@@ -232,9 +228,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
       delegationTokenMgr = createDelegationTokenSecretManager(configuration);
     }
 
-    omRpcServer = startRpcServer(configuration, omNodeRpcAddr,
-        OzoneManagerProtocolPB.class, omService,
-        handlerCount);
+    omRpcServer = getRpcServer(conf);
     omRpcAddress = updateRPCListenAddress(configuration,
         OZONE_OM_ADDRESS_KEY, omNodeRpcAddr, omRpcServer);
     metadataManager = new OmMetadataManagerImpl(configuration);
@@ -762,6 +756,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
     keyManager.start(configuration);
     omRpcServer.start();
+    isOmRpcServerRunning = true;
     try {
       httpServer = new OzoneManagerHttpServer(configuration, this);
       httpServer.start();
@@ -771,6 +766,75 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
     registerMXBean();
     setStartTime();
+  }
+
+  /**
+   * Restarts the service. This method re-initializes the rpc server.
+   */
+  public void restart() throws IOException {
+    LOG.info(buildRpcServerStartMessage("OzoneManager RPC server",
+        omRpcAddress));
+
+
+    DefaultMetricsSystem.initialize("OzoneManager");
+
+    metadataManager.start(configuration);
+    startSecretManagerIfNecessary();
+
+    // Set metrics and start metrics back ground thread
+    metrics.setNumVolumes(metadataManager.countRowsInTable(metadataManager
+        .getVolumeTable()));
+    metrics.setNumBuckets(metadataManager.countRowsInTable(metadataManager
+        .getBucketTable()));
+
+    if (getMetricsStorageFile().exists()) {
+      OmMetricsInfo metricsInfo = READER.readValue(getMetricsStorageFile());
+      metrics.setNumKeys(metricsInfo.getNumKeys());
+    }
+
+    // Schedule save metrics
+    long period = configuration.getTimeDuration(OZONE_OM_METRICS_SAVE_INTERVAL,
+        OZONE_OM_METRICS_SAVE_INTERVAL_DEFAULT, TimeUnit.MILLISECONDS);
+    scheduleOMMetricsWriteTask = new ScheduleOMMetricsWriteTask();
+    metricsTimer = new Timer();
+    metricsTimer.schedule(scheduleOMMetricsWriteTask, 0, period);
+
+    keyManager.start(configuration);
+    omRpcServer = getRpcServer(configuration);
+    omRpcServer.start();
+    isOmRpcServerRunning = true;
+    try {
+      httpServer = new OzoneManagerHttpServer(configuration, this);
+      httpServer.start();
+    } catch (Exception ex) {
+      // Allow OM to start as Http Server failure is not fatal.
+      LOG.error("OM HttpServer failed to start.", ex);
+    }
+    registerMXBean();
+    setStartTime();
+  }
+
+  /**
+   * Creates a new instance of rpc server. If an earlier instance is already
+   * running then returns the same.
+   */
+  private RPC.Server getRpcServer(OzoneConfiguration conf) throws IOException {
+    if (isOmRpcServerRunning) {
+      return omRpcServer;
+    }
+
+    final int handlerCount = conf.getInt(OZONE_OM_HANDLER_COUNT_KEY,
+        OZONE_OM_HANDLER_COUNT_DEFAULT);
+    RPC.setProtocolEngine(configuration, OzoneManagerProtocolPB.class,
+        ProtobufRpcEngine.class);
+
+    BlockingService omService = newReflectiveBlockingService(
+        new OzoneManagerProtocolServerSideTranslatorPB(this));
+    final InetSocketAddress omNodeRpcAddr =
+        getOmAddress(configuration);
+    return startRpcServer(configuration, omNodeRpcAddr,
+        OzoneManagerProtocolPB.class, omService,
+        handlerCount);
   }
 
   /**
@@ -785,6 +849,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         scheduleOMMetricsWriteTask = null;
       }
       omRpcServer.stop();
+      isOmRpcServerRunning = false;
       keyManager.stop();
       stopSecretManager();
       httpServer.stop();
